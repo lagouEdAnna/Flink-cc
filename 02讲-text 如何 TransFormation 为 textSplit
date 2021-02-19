@@ -1,0 +1,58 @@
+public <R> SingleOutputStreamOperator<R> flatMap(FlatMapFunction<T, R> flatMapper) {
+    TypeInformation<R> outType = TypeExtractor.getFlatMapReturnTypes(clean(flatMapper),
+            getType(), Utils.getCallLocationName(), true);
+    return flatMap(flatMapper, outType);
+}
+
+
+
+
+public <R> SingleOutputStreamOperator<R> flatMap(FlatMapFunction<T, R> flatMapper) {
+    TypeInformation<R> outType = TypeExtractor.getFlatMapReturnTypes(clean(flatMapper),
+            getType(), Utils.getCallLocationName(), true);
+    return flatMap(flatMapper, outType);
+
+
+
+
+
+public <R> SingleOutputStreamOperator<R> flatMap(FlatMapFunction<T, R> flatMapper, TypeInformation<R> outputType) {
+        return transform("Flat Map", outputType, new StreamFlatMap<>(clean(flatMapper)));
+
+
+
+
+
+public <R> SingleOutputStreamOperator<R> transform(
+        String operatorName,
+        TypeInformation<R> outTypeInfo,
+        OneInputStreamOperator<T, R> operator) {
+
+    return doTransform(operatorName, outTypeInfo, SimpleOperatorFactory.of(operator));
+    
+    
+    
+    
+
+protected <R> SingleOutputStreamOperator<R> doTransform(
+        String operatorName,
+        TypeInformation<R> outTypeInfo,
+        StreamOperatorFactory<R> operatorFactory) {
+
+    // read the output type of the input Transform to coax out errors about MissingTypeInfo
+    transformation.getOutputType();
+
+    OneInputTransformation<T, R> resultTransform = new OneInputTransformation<>(
+            this.transformation,
+            operatorName,
+            operatorFactory,
+            outTypeInfo,
+            environment.getParallelism());
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    SingleOutputStreamOperator<R> returnStream = new SingleOutputStreamOperator(environment, resultTransform);
+
+    getExecutionEnvironment().addOperator(resultTransform);
+
+    return returnStream;
+}
