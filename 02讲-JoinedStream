@@ -1,0 +1,77 @@
+public class JoinStreamExample {
+ 
+    public static void main(String[] args) throws Exception {
+ 
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+ 
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+ 
+        TestSourceFunction1 source1 = new TestSourceFunction1();
+ 
+        TestSourceFunction2 source2 = new TestSourceFunction2();
+ 
+        DataStream<Tuple4<String, String, String, Long>> dataStream1 = env.addSource(source1).assignTimestampsAndWatermarks(
+            new AscendingTimestampExtractor<Tuple4<String, String, String, Long>>(){
+ 
+                @Override
+                public long extractAscendingTimestamp(Tuple4<String, String, String, Long> element) {
+                    return element.f3.longValue();
+                }
+            }
+        );
+ 
+        DataStream<Tuple3<String, String, Long>> dataStream2 = env.addSource(source2).assignTimestampsAndWatermarks(
+            new AscendingTimestampExtractor<Tuple3<String, String, Long>>(){
+ 
+                @Override
+                public long extractAscendingTimestamp(Tuple3<String, String, Long> element) {
+                    return element.f2.longValue();
+                }
+            }
+        );
+ 
+ 
+        KeyedStream<Tuple4<String, String, String, Long>, String> keyed1 = dataStream1.keyBy(
+ 
+            new KeySelector<Tuple4<String, String, String, Long>, String>() {
+                @Override
+                public String getKey(Tuple4<String, String, String, Long> value) throws Exception {
+                    return value.f0;
+                }
+            }
+        );
+ 
+        KeyedStream<Tuple3<String, String,Long>, String> keyed2 = dataStream2.keyBy(
+ 
+            new KeySelector<Tuple3<String, String, Long>, String>() {
+                @Override
+                public String getKey(Tuple3<String, String, Long> value) throws Exception {
+                    return value.f0;
+                }
+            }
+        );
+ 
+        IntervalJoin<Tuple4<String, String, String, Long>, Tuple3<String, String, Long>, String> joinedStreams = keyed1.intervalJoin(keyed2);
+ 
+        DataStream<Tuple7<String, String, String, Long, String, String, Long>> result = joinedStreams.between(Time.seconds(-50), Time.seconds(50)).process(
+            new ProcessJoinFunction<Tuple4<String,String,String,Long>, Tuple3<String,String,Long>, Tuple7<String, String, String, Long, String, String, Long>>() {
+                @Override
+                public void processElement(Tuple4<String, String, String, Long> left,
+                                           Tuple3<String, String, Long> right,
+                                           Context ctx, Collector<Tuple7<String, String, String, Long, String, String, Long>> out) throws Exception {
+ 
+                    out.collect(Tuple7.of(left.f0, left.f1, left.f2, left.f3, right.f0, right.f1, right.f2));
+ 
+                }
+            });
+ 
+ 
+        TestAppendPrintTupleSink<Tuple7<String, String, String, Long, String, String, Long>> sink = new TestAppendPrintTupleSink<>();
+ 
+        result.addSink(sink);
+ 
+        env.execute();
+ 
+    }
+ 
+}
