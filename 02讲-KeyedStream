@@ -1,0 +1,38 @@
+public class KeyedStreamExample {
+ 
+    public static void main(String[] args) throws Exception {
+ 
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+ 
+ 
+        DataStream<String[]> dataStream1 = env.fromCollection(Datas.getStringArrays1());
+ 
+        KeyedStream<String[], String> dataStream2 = dataStream1.keyBy(new KeySelector<String[], String>() {
+ 
+            @Override
+            public String getKey(String[] value) throws Exception {
+ 
+                return value[1];
+            }
+        });
+ 
+        DataStream<String[]> dataStream3 = dataStream2.reduce(
+ 
+            new ReduceFunction<String[]>() {
+                @Override
+                public String[] reduce(String[] value1, String[] value2) throws Exception {
+                    return ArrayUtils.addAll(value1, value2);
+                }
+            }
+        );
+ 
+        TestAppendPrintSink sink1 = new TestAppendPrintSink("sink1");
+        TestAppendPrintSink sink2 = new TestAppendPrintSink("sink2");
+ 
+        dataStream2.addSink(sink1);
+        dataStream3.addSink(sink2);
+        env.execute();
+ 
+    }
+ 
+}
