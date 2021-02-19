@@ -1,0 +1,90 @@
+public class WindowStreamExample {
+ 
+    public static void main(String[] args) throws Exception {
+ 
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+ 
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+ 
+        TestSourceFunction3 source = new TestSourceFunction3();
+ 
+        DataStream<Tuple3<String, String, Long>> dataStream = env.addSource(source).assignTimestampsAndWatermarks(
+            new AscendingTimestampExtractor<Tuple3<String, String, Long>>(){
+ 
+                @Override
+                public long extractAscendingTimestamp(Tuple3<String, String, Long> element) {
+                    return element.f2.longValue();
+                }
+            }
+        );
+ 
+ 
+        KeyedStream<Tuple3<String, String, Long>, String> keyed = dataStream.keyBy(
+ 
+            new KeySelector<Tuple3<String, String, Long>, String>() {
+                @Override
+                public String getKey(Tuple3<String, String, Long> value) throws Exception {
+                    return value.f1;
+                }
+            }
+        );
+ 
+        WindowedStream<Tuple3<String, String, Long>, String, TimeWindow> windowedStream = keyed.timeWindow(Time.seconds(10));
+ 
+        DataStream<Tuple3<String, String, Long>> result = windowedStream.aggregate(
+            new AggregateFunction<Tuple3<String, String, Long>, List<String>, Tuple3<String,String, Long>>(){
+ 
+ 
+                String key;
+ 
+                @Override
+                public List<String> createAccumulator() {
+                    return new ArrayList<String>();
+                }
+ 
+                @Override
+                public List<String> add(Tuple3<String, String, Long> value,
+                                                      List<String> accumulator) {
+ 
+                    key = value.f1;
+                    accumulator.add(String.valueOf(value.f2));
+                    return accumulator;
+                }
+ 
+                @Override
+                public Tuple3<String, String, Long> getResult(List<String> accumulator) {
+ 
+                    StringBuilder sb = new StringBuilder("");
+ 
+                    Long r = 0L;
+ 
+                    for(String s : accumulator){
+ 
+                        sb.append(s).append("_");
+                        r = r + 1;
+ 
+                    }
+ 
+                    sb.setLength(sb.length() - 1);
+ 
+                    return Tuple3.of(key, sb.toString(), r);
+                }
+ 
+                @Override
+                public List<String> merge(List<String> a, List<String> b) {
+                    a.addAll(b);
+                    return a;
+                }
+ 
+            }
+        );
+ 
+        TestAppendPrintTupleSink sink = new TestAppendPrintTupleSink();
+ 
+        result.addSink(sink);
+ 
+        env.execute();
+ 
+    }
+ 
+}
