@@ -61,3 +61,39 @@ public class CustomOperator extends AbstractStreamOperator<String[]> implements 
         sb2 = null;
     }
 }
+ 
+这个 Operator 的作用是实现矩阵转置，具体操作： processElement 接收数据进行缓存时，满三行之后进行转置输出。同时这个 Operator 继承了 BoundedOneInput 接口，当输入结束，若最后输入的数据不满三行，则直接将缓存的数据进行转置输出。
+
+
+比如通过如下代码输入：
+11，12
+21，22
+31，32
+41，42
+51，52
+public class CustomOperatorExample {
+    public static void main(String[] args) throws Exception {
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(1);
+        DataStream<String> source = env.fromElements(new String[]{
+            "11 12",
+            "21 22",
+            "31 32",
+            "41 42",
+            "51 52"
+        });
+        DataStream<String[]> cube = source.transform("CustomOperator", BasicArrayTypeInfo.STRING_ARRAY_TYPE_INFO, new CustomOperator());
+
+        cube.addSink(new TestAppendPrintSink());
+        env.execute();
+    }
+}
+
+
+
+最终会输出（具体可以看一下实例代码，这里不做解读）：
+11，21，31
+12，22，32
+及
+41，51
+42，52
