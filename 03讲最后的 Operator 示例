@@ -1,0 +1,63 @@
+public class CustomOperator extends AbstractStreamOperator<String[]> implements OneInputStreamOperator<String, String[]>,
+    BoundedOneInput {
+    private static final long serialVersionUID = 1212788424510160069L;
+    List<String> cache;
+    int count = 0;
+    String[] ret;
+    StringBuilder sb1;
+    StringBuilder sb2;
+
+    @Override
+    public void open() throws Exception{
+        super.open();
+        cache = new ArrayList<>();
+        sb1 = new StringBuilder("");
+        sb2 = new StringBuilder("");
+    }
+    @Override
+    public void processElement(StreamRecord<String> element) throws Exception {
+        cache.add(element.getValue());
+        System.out.println(element.getValue());
+        if(count++ == 2){
+            output();
+        }
+    }
+    private void output(){
+        if(transpose()){
+            output.collect(new StreamRecord<>(ret));
+            count = 0;
+            ret = null;
+            sb1.setLength(0);
+            sb2.setLength(0);
+            cache.clear();
+        }
+    }
+
+    private boolean transpose(){
+        if(cache != null && cache.size() > 0){
+            ret = new String[2];
+            for(String s : cache){
+                String[] tmp = s.split("\\s+");
+                assert tmp.length == 2;
+                sb1.append(tmp[0]).append(" ");
+                sb2.append(tmp[1]).append(" ");
+            }
+            sb1.setLength(sb1.length() - 1);
+            sb2.setLength(sb2.length() - 1);
+            ret[0] = sb1.toString();
+            ret[1] = sb2.toString();
+            return true;
+        }
+        return false;
+    }
+    @Override
+    public void endInput() throws Exception {
+        output();
+    }
+    @Override
+    public void close() throws Exception{
+        cache = null;
+        sb1 = null;
+        sb2 = null;
+    }
+}
